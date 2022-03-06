@@ -30,9 +30,13 @@ class RedBlackTree:
         # reach leaf node
         if node is None:
             return False
-        return node.val == val or \
-            self._has_val(val, node.left) or \
-            self._has_val(val, node.right)
+        if node.val == val:
+            return True
+        if node.val < val:
+            return self._has_val(val, node.right)
+        else:
+            return self._has_val(val, node.left)
+            
 
     def has_val(self, val):
         return self._has_val(val, self.root)
@@ -152,6 +156,10 @@ class RedBlackTree:
                 node = None
             else:
                 node = self.adjust_cluster(black)
+
+    def delete(self, val):
+        if not self.has_val(val):
+            return
 
     def _collect_vals(self, root, arr):
         if root is None:
