@@ -151,6 +151,7 @@ class BTree:
                 break
     
     def delete(self, target, node=None):
+        # top-down delete
         if node is None:
             # case 0: value not in tree
             if not self.has_val(target):
