@@ -125,6 +125,7 @@ class BTree:
         return self.search_val_node(val) is not None
 
     def insert(self, val):
+        # bottom-up insertion
         if self.has_val(val):
             return
         node = self._search_insert_node(val, self.root)
