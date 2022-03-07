@@ -224,8 +224,7 @@ if __name__ == '__main__':
         random.shuffle(arr)
         tree = RedBlackTree()
         expected = set()
-        from tqdm import tqdm
-        for i, a in tqdm(enumerate(arr)):
+        for i, a in enumerate(arr):
             tree.insert(a)
             expected.add(a)
             assert(tree.validate())
