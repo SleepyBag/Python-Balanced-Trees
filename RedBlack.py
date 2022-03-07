@@ -72,9 +72,7 @@ class RedBlackTree:
         # node, parent, and grandparent must not be all red
         assert(False)
 
-    def rotate(self, root, new_root, l, r, lr, rl):
-        before_vals = self.get_vals()
-
+    def _rotate(self, root, new_root, l, r, lr, rl):
         parent = root.parent
         if parent is None:
             self.root = new_root
@@ -117,22 +115,22 @@ class RedBlackTree:
             assert(not (llred and lrred))
             # let's rotate
             if llred:
-                self.rotate(root, left, left.left, root, left.left.right, left.right)
+                self._rotate(root, left, left.left, root, left.left.right, left.right)
                 return left
             elif lrred:
-                self.rotate(root, left.right, left, root, left.right.left, left.right.right)
+                self._rotate(root, left.right, left, root, left.right.left, left.right.right)
                 return left.right
         elif rred:
             rlred = right.left and not right.left.black
             rrred = right.right and not right.right.black
             # ll and lr could not be both red
             assert(not (rlred and rrred))
-            # let's rotate
+            # let's _rotate
             if rlred:
-                self.rotate(root, right.left, root, right, right.left.left, right.left.right)
+                self._rotate(root, right.left, root, right, right.left.left, right.left.right)
                 return right.left
             elif rrred:
-                self.rotate(root, right, root, right.right, right.left, right.right.left)
+                self._rotate(root, right, root, right.right, right.left, right.right.left)
                 return right
         return root
 
