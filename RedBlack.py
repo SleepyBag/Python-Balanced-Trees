@@ -1,64 +1,94 @@
 import random
 
 class Node:
-    def __init__(self, val):
+    def __init__(self, val, tree):
+        self.tree = tree
         self.val = val
-        self.left = None
-        self.right = None
+        self._left = None
+        self._right = None
         self.parent = None
         # True for black, False for red
         self.black = False
 
+    def flipped(self):
+        """Check if this node is flipped"""
+        if self.tree is None:
+            return False
+        return self.tree.flipped
+
+    def left(self):
+        return self._left if not self.flipped() else self._right
+
+    def right(self):
+        return self._right if not self.flipped() else self._left
+
     def set_left(self, child):
-        self.left = child
+        if not self.flipped():
+            self._left = child
+        else:
+            self._right = child
         if child is not None:
             child.parent = self
 
     def set_right(self, child):
-        self.right = child
+        if not self.flipped():
+            self._right = child
+        else:
+            self._left = child
         if child is not None:
             child.parent = self
     
     def __str__(self) -> str:
         return ("%s:%d:%s" % (('b' if self.black else 'r'), self.val, self.parent if self.parent is None else self.parent.val))
 
+
 class RedBlackTree:
     def __init__(self):
         self.root = None
+        self.flipped = False
 
-    def _has_val(self, val, node):
+    def flip(self):
+        """flip the tree: left <-> right"""
+        self.flipped = not self.flipped
+
+    def black(self, node):
+        """check if a node black (null node is black)"""
+        return node is None or node.black
+
+    def _get_node(self, val, node):
         # reach leaf node
         if node is None:
-            return False
+            return None
         if node.val == val:
-            return True
+            return node
         if node.val < val:
-            return self._has_val(val, node.right)
+            return self._get_node(val, node.right())
         else:
-            return self._has_val(val, node.left)
-            
+            return self._get_node(val, node.left())
 
     def has_val(self, val):
-        return self._has_val(val, self.root)
+        return self._get_node(val, self.root)
 
     def _insert_leaf(self, node, new_node):
-        # add a new node to where it should be
-        # simply dfs find the location and insert
-        # node is None only when root is None, so just set the root
+        """
+        add a new node to where it should be
+        simply dfs find the location and insert
+        node is None only when root is None, so just set the root
+        """
         if node == None:
             # root node is black
             new_node.black = True
             self.root = new_node
         elif new_node.val < node.val:
-            if node.left is None:
+            if node.left() is None:
                 node.set_left(new_node)
             else:
-                self._insert_leaf(node.left, new_node)
+                self._insert_leaf(node.left(), new_node)
         else:
-            if node.right is None:
+            if node.right() is None:
                 node.set_right(new_node)
             else:
-                self._insert_leaf(node.right, new_node)
+                self._insert_leaf(node.right(), new_node)
 
     def get_black_parent(self, node):
         if node.black:
@@ -72,35 +102,46 @@ class RedBlackTree:
         # node, parent, and grandparent must not be all red
         assert(False)
 
-    def _rotate(self, root, new_root, l, r, lr, rl):
+    def _rotate(self, root, new_root, l, r, lr, rl, root_color, lcolor, rcolor):
+        """
+        uniform rotate operation, parameters give the current root and the expected structure and color
+        color should be None if no change
+        """
         parent = root.parent
         if parent is None:
             self.root = new_root
             new_root.parent = None
-        elif parent.left is root:
+        elif parent.left() is root:
             parent.set_left(new_root)
         else:
             parent.set_right(new_root)
+        # set color and relationship
+        if root_color is not None:
+            new_root.black = root_color
         new_root.set_left(l)
         new_root.set_right(r)
-        l.set_right(lr)
-        r.set_left(rl)
-        # root is black, and two children are both red
-        new_root.black = True
-        l.black = False
-        r.black = False
+        if l is not None:
+            l.set_right(lr)
+            if lcolor is not None:
+                l.black = lcolor
+        if r is not None:
+            r.set_left(rl)
+            if rcolor is not None:
+                r.black = rcolor
             
 
-    def adjust_cluster(self, root):
-        # adjust a 2-3-4 cluster so that there is no red grandson, return the new root node
-        # there is at most one red grandson
-        left = root.left
-        right = root.right
+    def _insert_adjust_cluster(self, root):
+        """
+        adjust a 2-3-4 cluster so that there is no red grandson, return the new root node
+        there is at most one red grandson
+        """
+        left = root.left()
+        right = root.right()
         lred = left and not left.black
         rred = right and not right.black
         if lred and rred:
             # if it is a 4 cluster, push black down
-            for grandson in [left.left, left.right, right.left, right.right]:
+            for grandson in [left.left(), left.right(), right.left(), right.right()]:
                 if grandson and not grandson.black:
                     root.black = False
                     left.black = True
@@ -109,28 +150,28 @@ class RedBlackTree:
                     return root
             return root
         elif lred:
-            llred = left.left and not left.left.black
-            lrred = left.right and not left.right.black
+            llred = left.left() and not left.left().black
+            lrred = left.right() and not left.right().black
             # ll and lr could not be both red
             assert(not (llred and lrred))
             # let's rotate
             if llred:
-                self._rotate(root, left, left.left, root, left.left.right, left.right)
+                self._rotate(root, left, left.left(), root, left.left().right(), left.right(), True, False, False)
                 return left
             elif lrred:
-                self._rotate(root, left.right, left, root, left.right.left, left.right.right)
-                return left.right
+                self._rotate(root, left.right(), left, root, left.right().left(), left.right().right(), True, False, False)
+                return left.right()
         elif rred:
-            rlred = right.left and not right.left.black
-            rrred = right.right and not right.right.black
+            rlred = right.left() and not right.left().black
+            rrred = right.right() and not right.right().black
             # ll and lr could not be both red
             assert(not (rlred and rrred))
             # let's _rotate
             if rlred:
-                self._rotate(root, right.left, root, right, right.left.left, right.left.right)
-                return right.left
+                self._rotate(root, right.left(), root, right, right.left().left(), right.left().right(), True, False, False)
+                return right.left()
             elif rrred:
-                self._rotate(root, right, root, right.right, right.left, right.right.left)
+                self._rotate(root, right, root, right.right(), right.left(), right.right().left(), True, False, False)
                 return right
         return root
 
@@ -139,7 +180,7 @@ class RedBlackTree:
             return
 
         # insert the new value to a leaf node
-        new_node = Node(val)
+        new_node = Node(val, self)
         self._insert_leaf(self.root, new_node)
 
         node = new_node
@@ -162,9 +203,9 @@ class RedBlackTree:
     def _collect_vals(self, root, arr):
         if root is None:
             return
-        self._collect_vals(root.left, arr)
+        self._collect_vals(root.left(), arr)
         arr.append(root.val)
-        self._collect_vals(root.right, arr)
+        self._collect_vals(root.right(), arr)
 
     def get_vals(self):
         ans = []
@@ -177,17 +218,17 @@ class RedBlackTree:
             return
         if node.black:
             depth += 1
-        self.get_black_depths(node.left, depth, depths)
-        self.get_black_depths(node.right, depth, depths)
+        self.get_black_depths(node.left(), depth, depths)
+        self.get_black_depths(node.right(), depth, depths)
 
     def _validate_consequent_red(self, node):
         if node is None:
             return True
         if not node.black and node.parent is not None and not node.parent.black:
             return False
-        if not self._validate_consequent_red(node.left):
+        if not self._validate_consequent_red(node.left()):
             return False
-        if not self._validate_consequent_red(node.right):
+        if not self._validate_consequent_red(node.right()):
             return False
         return True
 
@@ -211,7 +252,7 @@ class RedBlackTree:
     def _to_str(self, node):
         if node is None:
             return ''
-        return ' ' + str(node) + ' ' + self._to_str(node.left) + self._to_str(node.right)
+        return ' ' + str(node) + ' ' + self._to_str(node.left()) + self._to_str(node.right())
 
     def __str__(self):
         return self._to_str(self.root)
