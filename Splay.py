@@ -1,4 +1,5 @@
 import random
+from tkinter import W
 
 class Node:
     def __init__(self, val):
@@ -120,6 +121,29 @@ class SplayTree:
         new_node = Node(val)
         self._insert_leaf(self.root, new_node)
         self._splay(val)
+
+    def _get_max_node(self, node):
+        assert node is not None
+        while node.right is not None:
+            node = node.right
+        return node
+
+    def delete(self, val):
+        if not self._has_val(val, self.root):
+            return
+        # first, splay it to root
+        self._splay(val)
+        deleted_node = self.root
+        if deleted_node.left is None:
+            self._set_root(deleted_node.right)
+        elif deleted_node.right is None:
+            self._set_root(deleted_node.left)
+        else:
+            # splay the left tree so that the root has no right child, set it as root
+            self._set_root(deleted_node.left)
+            self._splay(self._get_max_node(deleted_node.left))
+            # combine left and right subtree
+            self.root.set_right(deleted_node.right)
 
     def _collect_vals(self, root, arr):
         if root is None:
