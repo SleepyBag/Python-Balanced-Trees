@@ -66,10 +66,7 @@ class SplayTree:
         else:
             assert False
 
-    def _splay(self, val):
-        # val must exist before splay
-        path = []
-        node = self._splay_query(val, self.root, path)
+    def _splay_path(self, node, path):
         while path:
             if len(path) == 1:
                 # zig
@@ -88,6 +85,12 @@ class SplayTree:
                 path.pop()
                 path.pop()
 
+    def _splay(self, val):
+        # val must exist before splay
+        path = []
+        node = self._splay_query(val, self.root, path)
+        self._splay_path(node, path)
+
     def _insert_leaf(self, node, new_node):
         # add a new node to where it should be
         # simply dfs find the location and insert
@@ -104,6 +107,10 @@ class SplayTree:
                 node.set_right(new_node)
             else:
                 self._insert_leaf(node.right, new_node)
+
+    def has_val(self, val):
+        ans = self._has_val(val, self.root)
+        return ans
 
     def _has_val(self, val, node):
         if node is None:
@@ -123,10 +130,13 @@ class SplayTree:
         self._splay(val)
 
     def _get_max_node(self, node):
+        """get the max node, with the searching path"""
+        path = []
         assert node is not None
         while node.right is not None:
+            path.append(node)
             node = node.right
-        return node
+        return node, path
 
     def delete(self, val):
         if not self._has_val(val, self.root):
@@ -141,7 +151,7 @@ class SplayTree:
         else:
             # splay the left tree so that the root has no right child, set it as root
             self._set_root(deleted_node.left)
-            self._splay(self._get_max_node(deleted_node.left))
+            self._splay_path(*self._get_max_node(deleted_node.left))
             # combine left and right subtree
             self.root.set_right(deleted_node.right)
 
@@ -167,7 +177,7 @@ class SplayTree:
 
 
 if __name__ == '__main__':
-    for n in [100, 1000, 2000, 5000, 10000, 20000, 50000, 100000]:
+    for n in [100, 1000, 2000, 5000]:
         arr = [i for i in range(-n, n)]
         random.shuffle(arr)
         delete = arr[:200]
@@ -178,10 +188,9 @@ if __name__ == '__main__':
             tree.insert(a)
             expected.add(a)
             assert(tree.get_vals() == sorted(list(expected)))
-            # while delete and tree.has_val(delete[-1]):
-            #     deleted = delete.pop()
-            #     tree.delete(deleted)
-            #     expected.remove(deleted)
-            #     assert(tree.validate())
-            #     assert(tree.get_vals() == sorted(list(expected)))
+            while delete and tree.has_val(delete[-1]):
+                deleted = delete.pop()
+                tree.delete(deleted)
+                expected.remove(deleted)
+                assert(tree.get_vals() == sorted(list(expected)))
         print('When there are', n, 'elements, the Splay tree rotated for', tree.rotate_cnt, 'times')
