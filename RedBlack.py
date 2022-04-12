@@ -1,4 +1,5 @@
 import random
+from tqdm import tqdm
 
 class Node:
     def __init__(self, val, tree):
@@ -102,10 +103,10 @@ class RedBlackTree:
         # node, parent, and grandparent must not be all red
         assert(False)
 
-    def _rotate(self, root, new_root, l, r, lr, rl, root_color, lcolor, rcolor):
+    def _rotate(self, root, new_root, l, r, lr, rl, root_black=None, l_black=None, r_black=None):
         """
         uniform rotate operation, parameters give the current root and the expected structure and color
-        color should be None if no change
+        black should be None if no change
         """
         parent = root.parent
         if parent is None:
@@ -116,18 +117,18 @@ class RedBlackTree:
         else:
             parent.set_right(new_root)
         # set color and relationship
-        if root_color is not None:
-            new_root.black = root_color
+        if root_black is not None:
+            new_root.black = root_black
         new_root.set_left(l)
         new_root.set_right(r)
         if l is not None:
             l.set_right(lr)
-            if lcolor is not None:
-                l.black = lcolor
+            if l_black is not None:
+                l.black = l_black
         if r is not None:
             r.set_left(rl)
-            if rcolor is not None:
-                r.black = rcolor
+            if r_black is not None:
+                r.black = r_black
             
 
     def _insert_adjust_cluster(self, root):
@@ -194,11 +195,108 @@ class RedBlackTree:
                 node.black = True
                 node = None
             else:
-                node = self.adjust_cluster(black)
+                node = self._insert_adjust_cluster(black)
+
+    def _predecessor_node(self, node):
+        assert node.left() is not None
+        node = node.left()
+        while node.right() is not None:
+            node = node.right()
+        return node
+
+    def _successor_node(self, node):
+        assert node.right() is not None
+        node = node.right()
+        while node.left() is not None:
+            node = node.left()
+        return node
 
     def delete(self, val):
-        if not self.has_val(val):
+        """delete a value from the tree"""
+        # check if val is in the tree
+        node = self._get_node(val, self.root)
+        if node is None:
             return
+        self._delete_node(node)
+
+    def _delete_node(self, node):
+        # if it is an internal node to be deleted
+        # substitute by predecessor node
+        if node.left() is not None:
+            predecessor = self._predecessor_node(node)
+            node.val = predecessor.val
+            return self._delete_node(predecessor)
+        # substitute by successor node
+        elif node.right() is not None:
+            successor = self._successor_node(node)
+            node.val = successor.val
+            return self._delete_node(successor)
+        # delete leaf node, from bottom to top
+        else:
+            # if there is only one node, just delete the root
+            if node.parent is None:
+                self.root = None
+            # put the node to the left
+            if node is node.parent.right():
+                self.flip()
+            # if current node is not root, delete first
+            node.parent.set_left(None)
+            # if current node is red, just over
+            if not node.black:
+                self.flipped = False
+                return
+            # if current node is black, bottom-up fix
+            parent = node.parent
+            node = None
+            while node is not self.root:
+                # keep the node in the left branch
+                if node is parent.right():
+                    self.flip()
+                pr = parent.right()
+                prl = pr.left()
+                prr = pr.right()
+                if parent.black:
+                    if pr.black:
+                        if self.black(prl) and self.black(prr):
+                            pr.black = False
+                            # continue to fix up
+                            node = parent
+                            parent = node.parent
+                            continue
+                        elif not self.black(prl):
+                            # prl could not be None because red node must exists
+                            self._rotate(parent, prl, parent, pr, prl.left(), prl.right(), root_black=True)
+                            # fixed
+                            break
+                        elif not self.black(prr):
+                            self._rotate(parent, pr, parent, prr, prl, prr.left(), r_black=True)
+                            # fixed
+                            break
+                    else:
+                        prrl = prr.left() if prr is not None else None
+                        self._rotate(parent, pr, parent, prr, prl, prrl, root_black=True, l_black=False)
+                        # not fixed, continue
+                        continue
+                else:
+                    # pr must be black because parent is red
+                    if self.black(prl) and self.black(prr):
+                        parent.black = True
+                        pr.black = False
+                        # fixed
+                        break
+                    elif not self.black(prr):
+                        self._rotate(parent, pr, parent, prr, prl, prr.left(), root_black=False, l_black=True, r_black=True)
+                        # fixed
+                        break
+                    elif not self.black(prl):
+                        self._rotate(parent, prl, parent, pr, prl.left(), prl.right(), l_black=True)
+                        # fixed
+                        break
+        # the root node must be black
+        if node is self.root:
+            node.black = True
+        # reset flip
+        self.flipped = False
 
     def _collect_vals(self, root, arr):
         if root is None:
@@ -265,14 +363,16 @@ if __name__ == '__main__':
         random.shuffle(arr)
         tree = RedBlackTree()
         expected = set()
-        for i, a in enumerate(arr):
+        for i, a in tqdm(enumerate(arr), total=len(arr)):
             tree.insert(a)
             expected.add(a)
             assert(tree.validate())
             assert(tree.get_vals() == sorted(list(expected)))
-            # while delete and tree.has_val(delete[-1]):
-            #     deleted = delete.pop()
-            #     tree.delete(deleted)
-            #     expected.remove(deleted)
-            #     assert(tree.validate())
-            #     assert(tree.get_vals() == sorted(list(expected)))
+            while delete and tree.has_val(delete[-1]):
+                deleted = delete.pop()
+                tree.delete(deleted)
+                expected.remove(deleted)
+                assert(tree.validate())
+                # print(tree.get_vals())
+                # print(sorted(list(expected)))
+                assert(tree.get_vals() == sorted(list(expected)))
