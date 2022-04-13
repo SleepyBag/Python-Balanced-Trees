@@ -1,20 +1,22 @@
+from bisect import bisect
 import random
 
 class Node:
-    def __init__(self):
+    def __init__(self, tree):
         self.vals = []
         self.children = []
         self.parent = None
-    
+        self.tree = tree
+
     def degree(self):
         return len(self.vals) + 1
 
     def split(self):
         mid = len(self.vals) // 2
-        left = Node()
+        left = Node(self.tree)
         left.vals = self.vals[:mid]
         left.set_children(self.children[:mid + 1])
-        right = Node()
+        right = Node(self.tree)
         right.vals = self.vals[mid + 1:]
         right.set_children(self.children[mid + 1:])
         return self.vals[mid], left, right
@@ -29,11 +31,9 @@ class Node:
         else:
             self.vals = self.vals + [mid]
             self.set_children(self.children[:-1] + [left, right])
-        assert(self.vals == sorted(self.vals))
 
     def insert(self, insert_val):
         # must insert to a leaf node
-        assert(not self.children)
         for i, val in enumerate(self.vals):
             if insert_val < val:
                 self.vals = self.vals[:i] + [insert_val] + self.vals[i:]
@@ -41,10 +41,8 @@ class Node:
         self.vals.append(insert_val)
 
     def borrow(self, to, fr):
-        assert(abs(to - fr) == 1)
         to_node = self.children[to]
         fr_node = self.children[fr]
-        assert(bool(to_node.children) == bool(fr_node.children))
         if to < fr:
             to_node.vals.append(self.vals[to])
             self.vals[to] = fr_node.vals[0]
@@ -54,8 +52,6 @@ class Node:
                 to_node.children.append(fr_node.children[0])
                 fr_node.children = fr_node.children[1:]
                 to_node.children[-1].parent = to_node
-            assert(val < self.vals[to] for val in to_node.vals)
-            assert(val > self.vals[to] for val in fr_node.vals)
         else:
             to_node.vals = [self.vals[fr]] + to_node.vals
             self.vals[fr] = fr_node.vals[-1]
@@ -65,48 +61,42 @@ class Node:
                 to_node.children = [fr_node.children[-1]] + to_node.children
                 fr_node.children = fr_node.children[:-1]
                 to_node.children[0].parent = to_node
-            assert(val < self.vals[fr] for val in fr_node.vals)
-            assert(val > self.vals[to] for val in to_node.vals)
-        assert(to_node.validate())
-        assert(fr_node.validate())
-        assert(self.validate())
 
     def fuse(self, a, b):
-        assert(abs(a - b) == 1)
         a, b = min(a, b), max(a, b)
         node_a, node_b = self.children[a], self.children[b]
-        new_node = Node()
+        new_node = Node(self.tree)
         new_node.vals = node_a.vals + [self.vals[a]] + node_b.vals
         new_node.set_children(node_a.children + node_b.children)
         new_node.parent = self
         del self.vals[a]
+        # the chidren of root node is fused and become new root
         self.children[a:b + 1] = [new_node]
-        assert(self.validate())
-        assert(new_node.validate())
+        if not self.vals and self is self.tree.root:
+            self.tree.root = self.children[0]
+            self.tree.root.parent = None
         return new_node
 
     def set_children(self, children):
         self.children = children
         for child in children:
             child.parent = self
-    
+
     def validate(self):
         if self.vals != sorted(self.vals):
+            print('vals not in order!')
             return False
         return not self.children or len(self.vals) == len(self.children) - 1
 
 class BTree:
     def __init__(self, d):
-        self.root = Node()
+        self.root = Node(self)
         self.d = d
 
     def _search_insert_node(self, val, root):
         if not root.children:
             return root
-        for i, key in enumerate(root.vals):
-            if val < key:
-                return self._search_insert_node(val, root.children[i])
-        return self._search_insert_node(val, root.children[-1])
+        return self._search_insert_node(val, root.children[bisect(root.vals, val)])
 
     def search_val_node(self, val, root=None):
         if root is None:
@@ -115,11 +105,7 @@ class BTree:
             return root
         if not root.children:
             return None
-        for i, key in enumerate(root.vals):
-            if val < key:
-                return self.search_val_node(val, root.children[i])
-        return self.search_val_node(val, root.children[-1])
-
+        return self.search_val_node(val, root.children[bisect(root.vals, val)])
 
     def has_val(self, val):
         return self.search_val_node(val) is not None
@@ -139,7 +125,7 @@ class BTree:
                     node.parent.absorb(mid, left, right)
                 else:
                     # root was split
-                    new_root = Node()
+                    new_root = Node(self)
                     new_root.vals = [mid]
                     new_root.set_children([left, right])
                     left.parent = new_root
@@ -167,7 +153,6 @@ class BTree:
                 i = len(node.vals)
                 target_node = node.children[-1]
             # if target node doesn't have enough degree to delete, we need to either borrow or fuse
-            assert(target_node.degree() >= self.d)
             if target_node.degree() == self.d:
                 if i > 0 and node.children[i - 1].degree() > self.d:
                     # can borrow from left sibling
