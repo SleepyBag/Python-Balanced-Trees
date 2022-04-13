@@ -236,6 +236,8 @@ class RedBlackTree:
             # if there is only one node, just delete the root
             if node.parent is None:
                 self.root = None
+                self.flipped = False
+                return
             # put the node to the left
             if node is node.parent.right():
                 self.flip()
