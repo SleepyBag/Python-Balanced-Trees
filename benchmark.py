@@ -50,9 +50,10 @@ def experiment_one_round(expriment_func, experiment_name):
             duration = timing(expriment_func, arr, tree)
             durations.append(duration)
             print('Finished with', duration)
-        plt.plot(lens, durations, label=tree_name)
+        plt.plot([l * 2 for l in lens], durations, label=tree_name)
+    plt.xlabel('number of inserted elements')
+    plt.ylabel('time (seconds)')
     plt.legend()
-    # plt.show()
     plt.savefig(experiment_name)
     plt.clf()
 
