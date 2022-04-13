@@ -39,8 +39,8 @@ def experiment_one_round(expriment_func, experiment_name):
         'splay': lambda: SplayTree(),
         'red-black': lambda: RedBlackTree(),
         '2-3-4': lambda: BTree(2),
-        'B-tree (degree 10)': lambda: BTree(4),
-        'B-tree (degree 20)': lambda: BTree(8),
+        'B-tree (degree 8)': lambda: BTree(4),
+        'B-tree (degree 16)': lambda: BTree(8),
     }
     for tree_name in tree_factories:
         durations = []
